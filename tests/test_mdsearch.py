@@ -315,6 +315,50 @@ class TestClassifyUrl:
         assert mdsearch.classify_url("https://x.com/z/", bad) == "zz"
 
 
+# ── classify_topic / build_doc_tags ─────────────────────────────────────────
+
+class TestClassifyTopic:
+    rules = [
+        {"regex": r"/firewall", "topic": "security"},
+        {"regex": r"/network", "topic": "networking"},
+    ]
+
+    def test_first_match(self):
+        assert mdsearch.classify_topic(
+            "https://x.com/firewall/zone", self.rules) == "security"
+
+    def test_no_match(self):
+        assert mdsearch.classify_topic("https://x.com/other", self.rules) == ""
+
+    def test_empty_rules(self):
+        assert mdsearch.classify_topic("https://x.com/firewall", []) == ""
+
+
+class TestBuildDocTags:
+    rules = [{"regex": r"/network", "topic": "networking"}]
+
+    def test_combines_base_subfolder_topic(self):
+        out = mdsearch.build_doc_tags(
+            "https://x.com/network/foo",
+            ["oracle-linux"], "ol9", self.rules)
+        assert out == ["oracle-linux", "ol9", "networking"]
+
+    def test_dedupes(self):
+        out = mdsearch.build_doc_tags(
+            "https://x.com/network", ["ol9"], "ol9", self.rules)
+        assert out == ["ol9", "networking"]
+
+    def test_skips_empty(self):
+        out = mdsearch.build_doc_tags(
+            "https://x.com/other", ["base"], "", [])
+        assert out == ["base"]
+
+    def test_no_base(self):
+        out = mdsearch.build_doc_tags(
+            "https://x.com/network", [], "ol9", self.rules)
+        assert out == ["ol9", "networking"]
+
+
 # ── _safe_output_path with subfolder ────────────────────────────────────────
 
 class TestSafeOutputPathSubfolder:

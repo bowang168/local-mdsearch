@@ -78,18 +78,25 @@ python3.9 mdsearch.py ingest
 
 ## Claude Code Skill
 
+`install.sh` resolves the repo path into `SKILL.md` and copies it to
+`~/.claude/skills/mdsearch/`:
+
 ```bash
-mkdir -p ~/.claude/skills/mdsearch
-cp SKILL.md ~/.claude/skills/mdsearch/
+./install.sh
 ```
 
-Then in Claude Code, use `/mdsearch` or Claude will auto-detect local search queries.
+Then in Claude Code, use `/mdsearch` or Claude will auto-detect local search
+queries via the `phrases` triggers in `SKILL.md`.
 
-## Codex CLI
+## Use from any AI agent CLI
 
-Pass the SKILL.md content as system context, or just invoke the CLI directly:
+`mdsearch.py search ... --json` is a self-contained machine-readable interface.
+Any agent that can shell out (Codex CLI, MCP custom-server, custom prompts)
+can call it the same way. Errors go to stderr; JSON to stdout.
+
 ```bash
-codex "search my local docs for kernel panic" -- python3 mdsearch.py search "kernel panic" --json
+# Generic example — substitute your own agent's invocation syntax
+python3 /path/to/local-mdsearch/mdsearch.py search "kernel panic" --json --limit 5
 ```
 
 ## Configuration

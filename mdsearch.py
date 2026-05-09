@@ -30,6 +30,7 @@ import sys
 import threading
 import time
 import uuid
+import warnings
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -38,7 +39,13 @@ from urllib.error import URLError
 from urllib.parse import urljoin, urlparse
 from urllib.request import Request, urlopen
 
-from qdrant_client import QdrantClient, models
+# jieba transitively imports pkg_resources, which emits a DeprecationWarning on
+# 3.12+. AI agents read our stderr, so silence the upstream noise here. The
+# filter must be installed before any third-party import that may trigger it.
+warnings.filterwarnings("ignore", message=r".*pkg_resources is deprecated.*")
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="pkg_resources")
+
+from qdrant_client import QdrantClient, models  # noqa: E402
 
 try:
     import yaml
@@ -814,7 +821,8 @@ def _discover_rel_next(start_url: str, first_html: str,
 def _fetch_one_book(
     idx: int, total: int, entry: dict, *,
     output_dir_resolved: Path, base_dir: Path,
-    subfolder_rules: list[dict], strip_selectors: list[str],
+    subfolder_rules: list[dict], topic_rules: list[dict], base_tags: list[str],
+    strip_selectors: list[str],
     timeout: int, user_agent: str, crawl_delay: float, delay: float,
     force: bool, fetched_global: _ThreadSafeSet, print_lock: threading.Lock,
 ) -> None:
@@ -868,16 +876,28 @@ def _fetch_one_book(
                   file=sys.stderr)
         return
 
+    tags = build_doc_tags(url, base_tags, subfolder, topic_rules)
     fetched_ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    frontmatter = (
-        f"---\ntitle: {json.dumps(page_title)}\n"
-        f"source_url: {url}\nfetched: {fetched_ts}\n"
-        f"page_count: {len(pages)}\n---\n\n"
-    )
+    frontmatter_lines = [
+        "---",
+        f"title: {json.dumps(page_title)}",
+        f"source_url: {url}",
+        f"fetched: {fetched_ts}",
+        f"page_count: {len(pages)}",
+    ]
+    if tags:
+        frontmatter_lines.append("tags:")
+        frontmatter_lines.extend(f"  - {json.dumps(t)}" for t in tags)
+    frontmatter_lines.append("---")
+    frontmatter_lines.append("")
+    frontmatter_lines.append("")
+    frontmatter = "\n".join(frontmatter_lines)
+
     out_file.write_text(frontmatter + markdown, encoding="utf-8")
     with print_lock:
         print(f"  [{idx}/{total}] saved: {out_file.relative_to(base_dir)} "
-              f"({len(pages)} pages, {len(markdown):,} chars)")
+              f"({len(pages)} pages, {len(markdown):,} chars, "
+              f"tags={tags or '∅'})")
 
 
 def cmd_fetch(cfg: dict, force: bool = False, dry_run: bool = False,
@@ -904,6 +924,8 @@ def cmd_fetch(cfg: dict, force: bool = False, dry_run: bool = False,
     user_agent = fetch_cfg.get("user_agent", "mdsearch/1.0")
     strip_selectors = fetch_cfg.get("strip_selectors", DEFAULT_STRIP_SELECTORS)
     subfolder_rules = fetch_cfg.get("subfolder_rules", [])
+    topic_rules = fetch_cfg.get("topic_rules", [])
+    base_tags = fetch_cfg.get("base_tags", []) or []
     max_workers = max(1, int(fetch_cfg.get("max_workers", DEFAULT_FETCH_WORKERS)))
 
     if not urls_file.exists():
@@ -947,7 +969,8 @@ def cmd_fetch(cfg: dict, force: bool = False, dry_run: bool = False,
             ex.submit(
                 _fetch_one_book, i + 1, total, entry,
                 output_dir_resolved=output_dir_resolved, base_dir=base_dir,
-                subfolder_rules=subfolder_rules, strip_selectors=strip_selectors,
+                subfolder_rules=subfolder_rules, topic_rules=topic_rules,
+                base_tags=base_tags, strip_selectors=strip_selectors,
                 timeout=timeout, user_agent=user_agent,
                 crawl_delay=crawl_delay, delay=delay,
                 force=force, fetched_global=fetched_global, print_lock=print_lock,
@@ -1023,6 +1046,33 @@ def classify_url(url: str, rules: list[dict]) -> str:
         if re.search(regex, path):
             return folder
     return ""
+
+
+def classify_topic(url: str, rules: list[dict]) -> str:
+    """Map URL to a topic by matching the first rule whose regex hits its path.
+
+    Each rule is ``{"regex": "...", "topic": "..."}``. Used to populate the
+    ``tags`` list in fetched-doc frontmatter so ingest can index them.
+    """
+    path = urlparse(url).path
+    for rule in rules:
+        regex = rule.get("regex")
+        topic = rule.get("topic")
+        if not regex or not topic:
+            continue
+        if re.search(regex, path):
+            return topic
+    return ""
+
+
+def build_doc_tags(url: str, base_tags: list[str], subfolder: str,
+                   topic_rules: list[dict]) -> list[str]:
+    """Compose deduped tags from fixed base + subfolder + classified topic."""
+    tags: list[str] = []
+    for t in (base_tags or []) + [subfolder, classify_topic(url, topic_rules)]:
+        if t and t not in tags:
+            tags.append(t)
+    return tags
 
 
 # ── 8. CLI ───────────────────────────────────────────────────────────────────

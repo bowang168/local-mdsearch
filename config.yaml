@@ -70,3 +70,43 @@ fetch:
       folder: olcne
     - regex: '/oracle-linux/'  # cross-version Oracle Linux pages (no version segment)
       folder: shared
+
+  # Tags written into each fetched file's frontmatter. Search payload exposes
+  # them as `tags`, queryable via `--filter tags=<value>` after ingest.
+  # `base_tags` is a fixed prefix appended to every fetched doc.
+  base_tags:
+    - oracle-linux
+
+  # Topic classifier — first matching rule's `topic` becomes a tag.
+  # Edit/extend per knowledge base; the example covers Oracle Linux subjects.
+  topic_rules:
+    - regex: '/(install|leapp|ibldr)'
+      topic: installation
+    - regex: '/(security|userauth|firewall|oscap|selinux|openssh|fapolicyd|secure-boot|certmanage)'
+      topic: security
+    - regex: '/(stordev|fsadmin|xfs|btrfs|/ext|nfs|ocfs2|samba|nbde|gluster)'
+      topic: storage
+    - regex: '/(network|balancing|vpn|mptcp|dhcp|bind|chrony)'
+      topic: networking
+    - regex: '/(kvm|virtio)'
+      topic: virtualization
+    - regex: '/(podman|olcne)'
+      topic: containers
+    - regex: '/(monitoring|tuned|pcp)'
+      topic: performance
+    - regex: '/(sos|drgn|corelens|auditing)'
+      topic: debugging
+    - regex: '/(dtrace|gprofng)'
+      topic: tracing
+    - regex: '/(boot|systemd|udev|hugepages|cron|cockpit|backup|accessibility)'
+      topic: system-management
+    - regex: '/(software-management|uln|ksplice)'
+      topic: package-management
+    - regex: '/relnotes'
+      topic: release-notes
+    - regex: '/availability'
+      topic: high-availability
+    - regex: '/asmlib'
+      topic: database
+    - regex: '/python|/drgn'
+      topic: development
