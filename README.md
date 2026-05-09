@@ -3,6 +3,42 @@
 Hybrid vector + BM25 search over your own markdown files.
 AI-first: designed for use from Claude Code, Codex CLI, or the terminal.
 
+**Portable**: one Python script, one config file. Qdrant runs in local-file
+mode — no Docker, no network port. Clone, install deps, ingest, search.
+
+## How It Works
+
+```
+urls.md  ─────────►  mdsearch.py fetch  ─────────►  docs/fetched/*.md
+                                                            │
+                                docs/**/*.md  ──────────────┤
+                                                            ▼
+                                            Ollama (qwen3-embedding:0.6b)
+                                                            │
+                                                 mdsearch.py ingest
+                                          (chunk + embed + fit BM25 + upsert)
+                                                            │
+                                                  Qdrant Local Mode
+                                                    (.db/ in repo)
+                                            No Docker. No network port.
+                                                            │
+                                       ┌────────────────────┴────────────────────┐
+                                       ▼                                         ▼
+                              Dense vector index                         BM25 sparse index
+                                 (semantic)                          (jieba CJK + English)
+                                       └────────────────────┬────────────────────┘
+                                                            ▼
+                                                 RRF fusion (hybrid)
+                                                            │
+                                                            ▼
+                                                 mdsearch.py search
+```
+
+1. `urls.md` — `[title](url)` list of pages to fetch (single source of truth).
+2. `mdsearch.py fetch` — download URLs, strip nav/footer, save Markdown to `docs/fetched/`.
+3. `mdsearch.py ingest` — heading-aware chunking, dense embeddings via Ollama, BM25 fit on the full corpus, write into `.db/`. Incremental on subsequent runs (SHA-256 hash cache); orphan chunks for shrunk files are deleted automatically.
+4. `mdsearch.py search` — hybrid RRF fusion of dense + BM25 by default, with `--mode semantic|keyword` for exact matches or fuzzy concepts.
+
 ## Prerequisites
 
 - Python 3.9+
