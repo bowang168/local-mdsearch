@@ -1,4 +1,4 @@
-# local-mdsearch
+# docs-mdrag
 
 Hybrid vector + BM25 search over your own markdown files.
 AI-first: designed for use from Claude Code, Codex CLI, or the terminal.
@@ -96,7 +96,7 @@ can call it the same way. Errors go to stderr; JSON to stdout.
 
 ```bash
 # Generic example — substitute your own agent's invocation syntax
-python3 /path/to/local-mdsearch/mdsearch.py search "kernel panic" --json --limit 5
+python3 /path/to/docs-mdrag/mdsearch.py search "kernel panic" --json --limit 5
 ```
 
 ## Configuration

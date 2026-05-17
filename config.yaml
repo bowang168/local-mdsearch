@@ -1,4 +1,4 @@
-# local-mdsearch configuration
+# docs-mdrag configuration
 # Paths are relative to this file unless they start with / or ~
 
 # Qdrant collection name — change this if you run multiple instances

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install.sh — install local-mdsearch as a Claude Code skill.
+# install.sh — install docs-mdrag as a Claude Code skill.
 #
 # Resolves {{MDSEARCH_HOME}} in SKILL.md to the absolute path of this repo
 # and writes the rendered skill to ${CLAUDE_HOME:-$HOME/.claude}/skills/mdsearch/.
